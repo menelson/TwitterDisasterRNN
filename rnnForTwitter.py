@@ -41,6 +41,12 @@ test_vectors = count_vectorizer.transform(df_test)
 # Split the training set into separate training and validation sets
 X_train, X_val, y_train, y_val = train_vectors[:6000], train_vectors[6000:], df_train["target"][:6000], df_train["target"][6000:]
 
+# Reshape into a format suitable for tensorflow
+X_train = X_train.astype(np.float32).reshape(-1, X_train.shape[0], X_train.shape[1]) 
+X_val = X_val.astype(np.float32).reshape(-1,  X_val.shape[0], X_val.shape[1])
+y_train = y_train.astype(np.int32)
+y_val = y_val.astype(np.int32)
+
 if debug:
 	print(X_train)
 	print(y_train)
@@ -56,6 +62,11 @@ n_outputs = 1
 n_layers = 3
 
 learning_rate = 0.001
+
+print(X_train.shape)
+print(y_train.shape)
+
+X_train.reshape(-1, n_steps, n_inputs)
 
 X = tf.placeholder(tf.float32, [None, n_steps, n_inputs])
 y = tf.placeholder(tf.int32, [None])
