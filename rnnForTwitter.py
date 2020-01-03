@@ -18,8 +18,8 @@ tf.disable_v2_behavior()
 '''
 
 def shuffle_batch(X, y, batch_size):
-	rnd_idx = np.random.permutation(len(X))
-	n_batches = len(X) / batch_size
+	rnd_idx = np.random.permutation(X.shape[0])
+	n_batches = X.shape[0] / batch_size
 	for batch_idx in np.array_split(rnd_idx, n_batches):
 		X_batch, y_batch = X[batch_idx], y[batch_idx]
 		yield X_batch, y_batch
@@ -63,11 +63,6 @@ n_layers = 3
 
 learning_rate = 0.001
 
-print(X_train.shape)
-print(y_train.shape)
-
-X_train.reshape(-1, n_steps, n_inputs)
-
 X = tf.placeholder(tf.float32, [None, n_steps, n_inputs])
 y = tf.placeholder(tf.int32, [None])
 
@@ -109,6 +104,7 @@ with tf.Session() as sess:
 	for epoch in range(n_epochs): # A single epoch is a complete iteration through the data	
 		# Iterate through the number of mini-batches at each epoch
 		for X_batch, y_batch in shuffle_batch(X_train, y_train, batch_size):
+			X_batch = X_batch.reshape((-1, n_steps, n_inputs))
 			sess.run(training_op, feed_dict={X: X_batch, y: y_batch}) # Run the training operation
 
 		# At the end of each epoch, evaluate the model on the last mini-batch and the validation set
@@ -117,6 +113,4 @@ with tf.Session() as sess:
 		print(epoch, "Batch accuracy:", acc_batch, "Val accuracy:", acc_val)
 
 	# Save the TensorFlow session
-	save_path = saver.save(sess, "./my_model_final.ckpt")
-
-
+	save_path = saver.save(sess, "./RNN_LSTM_Twitter_Model.ckpt")
