@@ -9,23 +9,26 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 from sklearn.feature_extraction.text import CountVectorizer
 
-# Necessary fix in order to use the v1 tensorflow functionality 
+# Necessary fix in order to use the v1 TensorFlow functionality 
 tf.disable_v2_behavior()
 
+# Debug flag (might move this later)
+debug = False
 
 '''
 	Shuffle the data in each batch
 '''
-
 def shuffle_batch(X, y, batch_size):
-	rnd_idx = np.random.permutation(X.shape[0])
+	rnd_idx = np.random.permutation(X.shape[0]) # Use shape[0] for a length since we're dealing with Numpy arrays 
 	n_batches = X.shape[0] / batch_size
 	for batch_idx in np.array_split(rnd_idx, n_batches):
 		X_batch, y_batch = X[batch_idx], y[batch_idx]
 		yield X_batch, y_batch
 
-debug = False
-
+'''
+	Pick up the test and train data-sets and transfrom the words
+	to vector using a bag-of-words approach
+'''
 df_train = pd.read_csv('./input/train.csv')
 df_test = pd.read_csv('./input/test.csv')
 
@@ -35,17 +38,16 @@ if debug:
 
 # Convert words in each Tweet to a vector
 count_vectorizer = CountVectorizer()
-train_vectors = count_vectorizer.fit_transform(df_train["text"])
-test_vectors = count_vectorizer.transform(df_test)
+train_vectors = count_vectorizer.fit_transform(df_train["text"][:])
+test_vectors = count_vectorizer.transform(df_test["text"][:])
+
+# Outputs are sparse vectors, so convert them to dense vectors
+train_vectors_dense = [t.todense() for t in train_vectors]
+test_vectors_desne = [t.todense() for t in test_vectors]
 
 # Split the training set into separate training and validation sets
-X_train, X_val, y_train, y_val = train_vectors[:6000], train_vectors[6000:], df_train["target"][:6000], df_train["target"][6000:]
-
-# Reshape into a format suitable for tensorflow
-X_train = X_train.astype(np.float32).reshape(-1, X_train.shape[0], X_train.shape[1]) 
-X_val = X_val.astype(np.float32).reshape(-1,  X_val.shape[0], X_val.shape[1])
-y_train = y_train.astype(np.int32)
-y_val = y_val.astype(np.int32)
+size = 6000
+X_train, X_val, y_train, y_val = np.asarray(train_vectors_dense[:size]), np.asarray(train_vectors_dense[size:]), np.asarray(df_train["target"][:size]), np.array(df_train["target"][size:])
 
 if debug:
 	print(X_train)
@@ -55,16 +57,23 @@ if debug:
 	Set up the RNN with LSTM
 '''
 
-n_steps = 1
-n_inputs = 1
+# Basic RNN settings
+n_steps = 1 # Vertical length for instance, since we have vertorized a single tweet at a time
+n_inputs = 21637 # Length of each vertorized instance
 n_neurons = 100
-n_outputs = 1
-n_layers = 3
+n_outputs = 2 # Binary classification: disaster(1) or not (0)
+n_layers = 5
 
-learning_rate = 0.001
+# New types and shapes for TensorFlow compatitibility
+X_train = X_train.astype(np.float32).reshape(-1, n_steps, n_inputs) 
+X_val = X_val.astype(np.float32).reshape(-1,  n_steps, n_inputs)
+y_train = y_train.astype(np.int32)
+y_val = y_val.astype(np.int32)
 
-X = tf.placeholder(tf.float32, [None, n_steps, n_inputs])
-y = tf.placeholder(tf.int32, [None])
+learning_rate = 0.005
+
+X = tf.placeholder(tf.float32, [None, n_steps, n_inputs], name="vertorized_tweets")
+y = tf.placeholder(tf.int32, [None], name="disaster_or_not")
 
 lstm_cells = [tf.nn.rnn_cell.BasicLSTMCell(num_units=n_neurons) for layer in range(n_layers)]
 
@@ -83,7 +92,6 @@ loss = tf.reduce_mean(xentropy, name="loss")
 
 # Adam for optimization
 optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate)
-
 training_op = optimizer.minimize(loss)
 correct = tf.nn.in_top_k(logits, y, 1)
 accuracy = tf.reduce_mean(tf.cast(correct, tf.float32))
@@ -96,7 +104,7 @@ saver = tf.train.Saver()
 	Load a TensorFlow session to run the training
 '''
 n_epochs = 40
-batch_size = 60
+batch_size = 100
 
 with tf.Session() as sess:
 	init.run() # Init node initializes all of the variables
