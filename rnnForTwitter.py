@@ -60,9 +60,9 @@ if debug:
 # Basic RNN settings
 n_steps = 1 # Vertical length for instance, since we have vertorized a single tweet at a time
 n_inputs = 21637 # Length of each vertorized instance
-n_neurons = 100
+n_neurons = 10
 n_outputs = 2 # Binary classification: disaster(1) or not (0)
-n_layers = 5
+n_layers = 100
 
 # New types and shapes for TensorFlow compatitibility
 X_train = X_train.astype(np.float32).reshape(-1, n_steps, n_inputs) 
@@ -75,9 +75,10 @@ learning_rate = 0.005
 X = tf.placeholder(tf.float32, [None, n_steps, n_inputs], name="vertorized_tweets")
 y = tf.placeholder(tf.int32, [None], name="disaster_or_not")
 
-lstm_cells = [tf.nn.rnn_cell.BasicLSTMCell(num_units=n_neurons) for layer in range(n_layers)]
+# LSTM cells, with Dropout regularization implemented in each layer (20 % of nodes are randomly dropped)
+lstm_cells = [tf.contrib.rnn.DropoutWrapper(tf.nn.rnn_cell.BasicLSTMCell(num_units=n_neurons), input_keep_prob=0.8, output_keep_prob=0.8) for layer in range(n_layers)]
 
-# Deep RNN
+# Put the layers together to make the deep RNN
 multi_cell = tf.nn.rnn_cell.MultiRNNCell(lstm_cells)
 
 # Use dynamic unrolling through time
